@@ -1,7 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
+//using System.Collections.Generic;
 using System.IO;
 using CsvHelper;
+using MongoDB.Bson;
 
 namespace PoloniexMongoImport {
     class MainClass {
@@ -11,7 +12,6 @@ namespace PoloniexMongoImport {
             using (StreamReader reader = new StreamReader("/Users/daxxog/Downloads/tradeHistory.csv"))
 
             using (var csv = new CsvReader(reader)) {
-                var records = new List<PoloniexRowData>();
                 csv.Read();
                 csv.ReadHeader();
 
@@ -30,7 +30,9 @@ namespace PoloniexMongoImport {
                         QuoteTotalLessFee = csv.GetField("Quote Total Less Fee")
                     };
 
-                    records.Add(record);
+                    BsonDocument bsonRecord = new BsonDocument();
+                    bsonRecord.Add(new BsonElement("Date", BsonValue.Create(record.Date)));
+                    Console.WriteLine(bsonRecord.ToString());
                 }
             }
         }
