@@ -16,54 +16,41 @@ namespace PoloniexMongoImport {
                 csv.ReadHeader();
 
                 while (csv.Read()) {
-                    var record = new PoloniexRowData {
-                        Date = csv.GetField("Date"),
-                        Market = csv.GetField("Market"),
-                        Category = csv.GetField("Category"),
-                        Type = csv.GetField("Type"),
-                        Price = csv.GetField("Price"),
-                        Amount = csv.GetField("Amount"),
-                        Total = csv.GetField("Total"),
-                        Fee = csv.GetField("Fee"),
-                        OrderNumber = csv.GetField("Order Number"),
-                        BaseTotalLessFee = csv.GetField("Base Total Less Fee"),
-                        QuoteTotalLessFee = csv.GetField("Quote Total Less Fee")
-                    };
-
                     BsonDocument bsonRecord = new BsonDocument();
-                    bsonRecord.Add(new BsonElement("Date", BsonValue.Create(record.Date)));
-                    Console.WriteLine(bsonRecord.ToString());
+
+                    //maybe: get Headers on the fly for more generic import
+                    CsvFlowBson("Date", csv, bsonRecord);
+                    CsvFlowBson("Market", csv, bsonRecord);
+                    CsvFlowBson("Category", csv, bsonRecord);
+                    CsvFlowBson("Type", csv, bsonRecord);
+                    CsvFlowBson("Price", csv, bsonRecord);
+                    CsvFlowBson("Amount", csv, bsonRecord);
+                    CsvFlowBson("Total", csv, bsonRecord);
+                    CsvFlowBson("Fee", csv, bsonRecord);
+                    CsvFlowBson("Order Number", csv, bsonRecord);
+                    CsvFlowBson("Base Total Less Fee", csv, bsonRecord);
+                    CsvFlowBson("Quote Total Less Fee", csv, bsonRecord);
+
+                    Console.WriteLine(bsonRecord.ToString()); //todo: insert record into db instead of printing to console
                 }
             }
         }
-    }
 
-    public class PoloniexRowData {
-        /* Structure:
-         * Date,Market,Category,Type,Price,Amount,Total,Fee,Order Number,Base Total Less Fee,Quote Total Less Fee
-         * -{ Date }-
-         * -{ Market }-
-         * -{ Category }-
-         * -{ Type }-
-         * -{ Price }-
-         * -{ Amount }-
-         * -{ Total }-
-         * -{ Fee }-
-         * -{ OrderNumber }-
-         * -{ BaseTotalLessFee }-
-         * -{ QuoteTotalLessFee }-
+        /* 
+         * CsvFlowBson(String field, CsvReader csv, BsonDocument bson)
+         * Pour a CsvReader field into a BSON document
+         * (replaces any existing element with the same name or adds a new element if an element with the same name is not found)
          */
+        public static void CsvFlowBson(String field, CsvReader csv, BsonDocument bson) {
+            bson.SetElement(GetFieldElement(csv, field));
+        }
 
-        public string Date { get; set; }
-        public string Market { get; set; }
-        public string Category { get; set; }
-        public string Type { get; set; }
-        public string Price { get; set; }
-        public string Amount { get; set; }
-        public string Total { get; set; }
-        public string Fee { get; set; }
-        public string OrderNumber { get; set; }
-        public string BaseTotalLessFee { get; set; }
-        public string QuoteTotalLessFee { get; set; }
+        /* 
+         * GetFieldElement(CsvReader csv, String field) -> BsonElement
+         * Wrapper for csv.GetField and new BsonElement
+         */
+        public static BsonElement GetFieldElement(CsvReader csv, String field) {
+            return new BsonElement(field, BsonValue.Create(csv.GetField(field)));
+        }
     }
 }
