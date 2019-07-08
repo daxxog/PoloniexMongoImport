@@ -18,18 +18,9 @@ namespace PoloniexMongoImport {
                 while (csv.Read()) {
                     BsonDocument bsonRecord = new BsonDocument();
 
-                    //maybe: get Headers on the fly for more generic import
-                    CsvFlowBson("Date", csv, bsonRecord);
-                    CsvFlowBson("Market", csv, bsonRecord);
-                    CsvFlowBson("Category", csv, bsonRecord);
-                    CsvFlowBson("Type", csv, bsonRecord);
-                    CsvFlowBson("Price", csv, bsonRecord);
-                    CsvFlowBson("Amount", csv, bsonRecord);
-                    CsvFlowBson("Total", csv, bsonRecord);
-                    CsvFlowBson("Fee", csv, bsonRecord);
-                    CsvFlowBson("Order Number", csv, bsonRecord);
-                    CsvFlowBson("Base Total Less Fee", csv, bsonRecord);
-                    CsvFlowBson("Quote Total Less Fee", csv, bsonRecord);
+                    foreach(String header in csv.Context.HeaderRecord) {
+                        CsvFlowBson(header, csv, bsonRecord);
+                    }
 
                     Console.WriteLine(bsonRecord.ToString()); //todo: insert record into db instead of printing to console
                 }
