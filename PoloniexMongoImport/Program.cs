@@ -29,7 +29,7 @@ namespace PoloniexMongoImport {
         }
 
         /* 
-         * public static byte[] PoloniexDateStampToBytes(String dateStamp)
+         * public static bool PoloniexDateStampValid(String dateStamp)
          * Poloniex specific boolean logic which checks for a valid String based timestamp
          *                                 111111111
          *                       0123456789012345678
