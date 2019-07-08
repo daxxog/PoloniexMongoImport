@@ -22,7 +22,7 @@ namespace PoloniexMongoImport {
                         CsvFlowBson(header, csv, bsonRecord);
                     }
 
-                    Console.WriteLine(bsonRecord.ToString()); //todo: insert record into db instead of printing to console
+                    Console.WriteLine(bsonRecord.ToString()); //todo: upsert record into db instead of printing to console
                 }
             }
         }
