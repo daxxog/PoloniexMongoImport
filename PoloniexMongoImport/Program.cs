@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Security.Cryptography;
 using CsvHelper;
 using MongoDB.Bson;
 
@@ -14,14 +15,28 @@ namespace PoloniexMongoImport {
                 csv.Read();
                 csv.ReadHeader();
 
+                ulong csvLine = 0;
                 while (csv.Read()) {
+                    csvLine++;
                     BsonDocument bsonRecord = new BsonDocument();
 
+                    //fill the BsonDocument with all the values from the current line in the CSV file
                     foreach(String header in csv.Context.HeaderRecord) {
                         CsvFlowBson(header, csv, bsonRecord);
                     }
 
-                    Console.WriteLine(PoloniexDateStampToBytes(bsonRecord.GetValue("Date").ToString()));
+                    String dateStamp = bsonRecord.GetValue("Date").ToString();
+                    byte[] dateBytes = PoloniexDateStampToBytes(dateStamp);
+                    MD5 md5 = MD5.Create();
+                    byte[] dateHash = md5.ComputeHash(dateBytes);
+                    ObjectId idStatic = new ObjectId(MergeBytes12(dateHash, dateBytes, csvLine));
+                    
+                    Console.WriteLine("");
+                    Console.WriteLine(csvLine);
+                    //just an md5 hash of the date to make the ObjectID look more  "random" Console.WriteLine(BitConverter.ToString(dateHash));
+                    Console.WriteLine(idStatic.ToString());
+                    Console.WriteLine(dateStamp); //should match ->>
+                    Console.WriteLine(idStatic.CreationTime); //todo: figure out how to get this to match dateStamp (look at the seconds)
 
                     //Console.WriteLine(bsonRecord.ToString()); //todo: upsert record into db instead of printing to console
                 }
@@ -64,12 +79,91 @@ namespace PoloniexMongoImport {
          */
         public static byte[] PoloniexDateStampToBytes(String dateStamp) {
             if(PoloniexDateStampValid(dateStamp)) { //check for valid dateStamp
-                //Console.WriteLine(dateStamp);
-                return new byte[] { 0x01, 0x01, 0x01, 0x01 }; //todo, logic to create byte array from information contained in the String
+
+                //Parse each digit in the dateStamp
+                var y0 = Convert.ToInt16(dateStamp.Substring(0,  1)) * 1000; //millennia
+                var y1 = Convert.ToInt16(dateStamp.Substring(1,  1)) * 100; //century
+                var y2 = Convert.ToInt16(dateStamp.Substring(2,  1)) * 10; //decade
+                var y3 = Convert.ToInt16(dateStamp.Substring(3,  1)); //year
+                var year = y0 + y1 + y2 + y3; //full year (4 digits)
+
+                var m5 = Convert.ToInt16(dateStamp.Substring(5,  1)) * 10; //month (tens)
+                var m6 = Convert.ToInt16(dateStamp.Substring(6,  1)); //month (ones)
+                var month = m5 + m6; //month (1-12) of the year
+
+                var d8 = Convert.ToInt16(dateStamp.Substring(8,  1)) * 10; //day (tens)
+                var d9 = Convert.ToInt16(dateStamp.Substring(9,  1)); //day (ones)
+                var day = d8 + d9; //day of the month
+
+                var h11 = Convert.ToInt16(dateStamp.Substring(11,  1)) * 10; //hour (tens)
+                var h12 = Convert.ToInt16(dateStamp.Substring(12,  1)); //hour (ones)
+                var hour = h11 + h12; //hour of the day
+
+                var m14 = Convert.ToInt16(dateStamp.Substring(14,  1)) * 10; //minute (tens)
+                var m15 = Convert.ToInt16(dateStamp.Substring(15,  1)); //minute (ones)
+                var minute = m14 + m15; //minute of the hour
+
+                var s17 = Convert.ToInt16(dateStamp.Substring(17,  1)) * 10; //second (tens)
+                var s18 = Convert.ToInt16(dateStamp.Substring(18,  1)); //second (ones)
+                var second = s17 + s18; //second of the minute
+
+                var dt = new DateTime(year, month, day, hour, minute, second); //create DateTime object using the parsed data
+                var seconds = (uint)(dt.ToBinary() / 10000000); //total seconds since UNIX epoch (Unsigned 32-bit integer)
+                var bytes = BitConverter.GetBytes(seconds); //32 bit unsigned integer converted to byte array (4 bytes)
+
+                if(BitConverter.IsLittleEndian) { //we always want our byte array to be BigEndian, as in the MongoDB spec
+                    Array.Reverse(bytes);
+                }
+
+                /*-- useful debug stuff
+                Console.WriteLine(dateStamp);
+                Console.WriteLine(seconds);
+                Console.WriteLine(BitConverter.IsLittleEndian);
+                Console.WriteLine(BitConverter.ToString(bytes));
+                */
+
+                return bytes;
             } else {
                 Console.WriteLine("found bad dateStamp: " + dateStamp);
                 return new byte[] { 0x00, 0x00, 0x00, 0x00 };
             }
+        }
+
+        /*
+         * public static byte[] MergeBytes12(byte[] _bytes12, byte[] bytes4, ulong int8)
+         * Create 12 byte merged data from: (ObjectID compatible)
+         * _bytes12 = 12 byte "random" data returned value may contain some of this data.
+         * bytes4 = 4 byte header. Will always be the first 4 bytes of the returned data.
+         * int8 = 64 bit unsigned integer which is casted into an 8 byte array.
+         *        Zero values from the resulting array are replaced with data from _bytes12.
+         */
+        public static byte[] MergeBytes12(byte[] _bytes12, byte[] bytes4, ulong int8) {
+            byte[] bytes8 = BitConverter.GetBytes(int8); //64 bit unsigned integer converted to byte array (8 bytes)
+            byte[] bytes12 = new byte[12]; //new byte array which will hold the return value
+
+            if(BitConverter.IsLittleEndian) { //we always want our 8 byte array to be BigEndian, as in the MongoDB spec
+                Array.Reverse(bytes8);
+            }
+
+            //copy and merge _bytes12 with non zeros of byte casted int8 into bytes12 (return value)
+            for (int i = 0; i <= 11; i++) {
+                bytes12[i] = _bytes12[i]; //copy the first 12 bytes from _bytes12 to our newly created bytes12
+
+                if(i > 3) {
+                    if(bytes8[i - 4] != 0) { //we can use this data if its not a zero
+                        bytes12[i] = bytes8[i - 4];
+                    }
+                }
+            }
+
+            //overwrite the front of the 12 byte array with our 4 byte header
+            bytes12[0] = bytes4[0];
+            bytes12[1] = bytes4[1];
+            bytes12[2] = bytes4[2];
+            bytes12[3] = bytes4[3];
+
+            //return the resulting data
+            return bytes12;
         }
 
 
