@@ -3,13 +3,28 @@ using System.IO;
 using System.Security.Cryptography;
 using CsvHelper;
 using MongoDB.Bson;
+using MongoDB.Driver;
 
 namespace PoloniexMongoImport {
     class MainClass {
         public static void Main(string[] args) {
-            Console.WriteLine("importing csv file..");
+            var csvFilePath = "/Users/daxxog/Downloads/tradeHistory.csv";
+            var mongoUrl = System.IO.File.ReadAllText("/Users/daxxog/Desktop/mongo.txt");
 
-            using (StreamReader reader = new StreamReader("/Users/daxxog/Downloads/tradeHistory.csv"))
+            Console.WriteLine("Connecting to database -->");
+            Console.WriteLine(mongoUrl);
+            MongoClient mongoClient = new MongoClient(mongoUrl);
+            var mongoDatabase = mongoClient.GetDatabase(mongoUrl.Substring(mongoUrl.LastIndexOf('/') + 1)); //not really a good/safe way to get the database, but it works
+            var mongoCollection = mongoDatabase.GetCollection<BsonDocument>("csv");
+
+            bool isMongoLive = mongoDatabase.RunCommandAsync((Command<BsonDocument>)"{ping:1}").Wait(1000);
+
+            Console.WriteLine("isConnected = " + isMongoLive);
+
+            Console.WriteLine("importing csv file -->");
+            Console.WriteLine(csvFilePath);
+
+            using (StreamReader reader = new StreamReader(csvFilePath))
 
             using (var csv = new CsvReader(reader)) {
                 csv.Read();
@@ -32,9 +47,12 @@ namespace PoloniexMongoImport {
 
                     //set the "_id" to our newly generated ObjectId
                     bsonRecord.SetElement(new BsonElement("_id", idStatic));
-                    
-                    Console.WriteLine(bsonRecord.ToString()); //todo: upsert record into db instead of printing to console
+
+                    //upsert each document
+                    mongoCollection.ReplaceOne(new BsonDocument("_id", idStatic), bsonRecord, new UpdateOptions { IsUpsert = true });
                 }
+
+                Console.WriteLine("updated " + csvLine + " documents!!");
             }
         }
 
