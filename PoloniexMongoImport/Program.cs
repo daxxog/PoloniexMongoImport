@@ -15,8 +15,9 @@ using MongoDB.Driver;
 namespace PoloniexMongoImport {
     class MainClass {
         public static void Main(string[] args) {
-            var csvFilePath = "/Users/daxxog/Downloads/tradeHistory.csv";
-            var mongoUrl = System.IO.File.ReadAllText("/Users/daxxog/Desktop/mongo.txt");
+            var homeFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var csvFilePath = Path.Combine(homeFolder, "Downloads", "tradeHistory.csv");
+            var mongoUrl = System.IO.File.ReadAllText(Path.Combine(homeFolder, "Desktop", "mongo.txt"));
 
             Console.WriteLine("Connecting to database -->");
             Console.WriteLine(mongoUrl);
