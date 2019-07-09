@@ -25,12 +25,15 @@ namespace PoloniexMongoImport {
                         CsvFlowBson(header, csv, bsonRecord);
                     }
 
-                    String dateStamp = bsonRecord.GetValue("Date").ToString();
-                    byte[] dateBytes = PoloniexDateStampToBytes(dateStamp);
+                    //create a static ObjectID based on the "Date" col
+                    byte[] dateBytes = PoloniexDateStampToBytes(bsonRecord.GetValue("Date").ToString());
                     byte[] dateHash = MD5.Create().ComputeHash(dateBytes);
                     ObjectId idStatic = new ObjectId(MergeBytes12(dateHash, dateBytes, csvLine));
 
-                    //Console.WriteLine(bsonRecord.ToString()); //todo: upsert record into db instead of printing to console
+                    //set the "_id" to our newly generated ObjectId
+                    bsonRecord.SetElement(new BsonElement("_id", idStatic));
+                    
+                    Console.WriteLine(bsonRecord.ToString()); //todo: upsert record into db instead of printing to console
                 }
             }
         }
