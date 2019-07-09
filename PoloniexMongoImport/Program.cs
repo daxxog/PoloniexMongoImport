@@ -27,16 +27,8 @@ namespace PoloniexMongoImport {
 
                     String dateStamp = bsonRecord.GetValue("Date").ToString();
                     byte[] dateBytes = PoloniexDateStampToBytes(dateStamp);
-                    MD5 md5 = MD5.Create();
-                    byte[] dateHash = md5.ComputeHash(dateBytes);
+                    byte[] dateHash = MD5.Create().ComputeHash(dateBytes);
                     ObjectId idStatic = new ObjectId(MergeBytes12(dateHash, dateBytes, csvLine));
-                    
-                    Console.WriteLine("");
-                    Console.WriteLine(csvLine);
-                    //just an md5 hash of the date to make the ObjectID look more  "random" Console.WriteLine(BitConverter.ToString(dateHash));
-                    Console.WriteLine(idStatic.ToString());
-                    Console.WriteLine(dateStamp); //should match ->>
-                    Console.WriteLine(idStatic.CreationTime); //todo: figure out how to get this to match dateStamp (look at the seconds)
 
                     //Console.WriteLine(bsonRecord.ToString()); //todo: upsert record into db instead of printing to console
                 }
@@ -78,8 +70,9 @@ namespace PoloniexMongoImport {
          * Poloniex specific code which converts a String based timestamp to a 4 byte array which Mongodb can use for the ObjectID
          */
         public static byte[] PoloniexDateStampToBytes(String dateStamp) {
-            if(PoloniexDateStampValid(dateStamp)) { //check for valid dateStamp
+            var bytes4 = new byte[] { 0x00, 0x00, 0x00, 0x00 }; //4 bytes we return
 
+            if(PoloniexDateStampValid(dateStamp)) { //check for valid dateStamp
                 //Parse each digit in the dateStamp
                 var y0 = Convert.ToInt16(dateStamp.Substring(0,  1)) * 1000; //millennia
                 var y1 = Convert.ToInt16(dateStamp.Substring(1,  1)) * 100; //century
@@ -107,25 +100,20 @@ namespace PoloniexMongoImport {
                 var s18 = Convert.ToInt16(dateStamp.Substring(18,  1)); //second (ones)
                 var second = s17 + s18; //second of the minute
 
-                var dt = new DateTime(year, month, day, hour, minute, second); //create DateTime object using the parsed data
-                var seconds = (uint)(dt.ToBinary() / 10000000); //total seconds since UNIX epoch (Unsigned 32-bit integer)
-                var bytes = BitConverter.GetBytes(seconds); //32 bit unsigned integer converted to byte array (4 bytes)
+                var dt = new DateTime(year, month, day, hour, minute, second, DateTimeKind.Utc); //create DateTime object using the parsed data
+                var oid = new ObjectId(dt, 0, 0, 0); //fake ObjectId just to do the binary conversion
+                var bytes12 = oid.ToByteArray(); //12 byte ObjectId, we only want the first 4 bytes
 
-                if(BitConverter.IsLittleEndian) { //we always want our byte array to be BigEndian, as in the MongoDB spec
-                    Array.Reverse(bytes);
-                }
+                //copy the first four bytes for our return value
+                bytes4[0] = bytes12[0];
+                bytes4[1] = bytes12[1];
+                bytes4[2] = bytes12[2];
+                bytes4[3] = bytes12[3];
 
-                /*-- useful debug stuff
-                Console.WriteLine(dateStamp);
-                Console.WriteLine(seconds);
-                Console.WriteLine(BitConverter.IsLittleEndian);
-                Console.WriteLine(BitConverter.ToString(bytes));
-                */
-
-                return bytes;
+                return bytes4;
             } else {
                 Console.WriteLine("found bad dateStamp: " + dateStamp);
-                return new byte[] { 0x00, 0x00, 0x00, 0x00 };
+                return bytes4;
             }
         }
 
