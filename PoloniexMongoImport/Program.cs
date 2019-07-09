@@ -1,4 +1,11 @@
-﻿using System;
+﻿/* PoloniexMongoImport
+ * Import a tradeHistory.csv file into MongoDB
+ * (c) 2018 David (daXXog) Volm ><> + + + <><
+ * Released under Apache License, Version 2.0:
+ * http://www.apache.org/licenses/LICENSE-2.0.html  
+ */ 
+
+using System;
 using System.IO;
 using System.Security.Cryptography;
 using CsvHelper;
