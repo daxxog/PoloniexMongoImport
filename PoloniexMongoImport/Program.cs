@@ -56,6 +56,9 @@ namespace PoloniexMongoImport {
                     //set the "_id" to our newly generated ObjectId
                     bsonRecord.SetElement(new BsonElement("_id", idStatic));
 
+                    //set the "line" to our csvLine counter
+                    bsonRecord.SetElement(new BsonElement("line", BsonValue.Create(csvLine)));
+
                     //upsert each document
                     mongoCollection.ReplaceOne(new BsonDocument("_id", idStatic), bsonRecord, new UpdateOptions { IsUpsert = true });
                 }
